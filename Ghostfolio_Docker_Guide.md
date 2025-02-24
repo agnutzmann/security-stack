@@ -242,5 +242,5 @@ docker exec -i gf-postgres psql -U user -d ghostfolio-db < backup_ghostfolio.sql
    docker logs ghostfolio --tail=50
    ```
 
-Now you have a fully formatted guide for GitHub! 🚀
+
 
