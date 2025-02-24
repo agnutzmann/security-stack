@@ -1,0 +1,253 @@
+# **Guia Completo: Instalação, Backup, Restauração e Atualização do Ghostfolio com Docker Compose**
+
+Este guia cobre a **instalação do Ghostfolio**, **configuração correta do `.env` e `docker-compose.yml`**, **backup e restauração do banco de dados PostgreSQL**, **atualização do Ghostfolio** e **solução para problemas comuns**.
+
+---
+
+## **1. Instalação do Ghostfolio com Docker Compose**
+
+### **1.1. Instalar Dependências**
+Antes de instalar o Ghostfolio, certifique-se de que você tem o **Docker** e o **Docker Compose** instalados no seu sistema.
+
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt update && sudo apt install -y docker docker-compose
+  sudo systemctl enable docker --now
+  ```
+
+- **Windows (com WSL)**:
+  1. Instale o **WSL 2** e o **Docker Desktop** ([Baixar Docker](https://www.docker.com/products/docker-desktop/)).
+  2. Ative o suporte ao WSL no Docker Desktop.
+
+- **MacOS**:
+  Baixe e instale o **Docker Desktop** ([Baixar Docker](https://www.docker.com/products/docker-desktop/)).
+
+---
+
+### **1.2. Criar Diretório do Ghostfolio**
+```bash
+mkdir -p ~/ghostfolio && cd ~/ghostfolio
+```
+
+---
+
+### **1.3. Criar o Arquivo `.env`**
+No diretório `~/ghostfolio`, crie um arquivo chamado `.env`:
+
+```bash
+nano .env
+```
+
+Copie e cole o seguinte conteúdo, substituindo as senhas conforme necessário:
+
+```env
+COMPOSE_PROJECT_NAME=ghostfolio-development
+
+# CACHE (Redis)
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=my_redis_password
+
+# POSTGRES
+POSTGRES_DB=ghostfolio-db
+POSTGRES_USER=user
+POSTGRES_PASSWORD=my_postgres_password
+
+# DATABASE URL
+DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?connect_timeout=300&sslmode=prefer
+
+# JWT
+ACCESS_TOKEN_SALT=my_random_string_12345
+JWT_SECRET_KEY=my_random_string_12345
+
+# DEVELOPMENT
+NX_ADD_PLUGINS=false
+NX_NATIVE_COMMAND_RUNNER=false
+```
+
+> **⚠ Importante:** O **`REDIS_HOST=redis`** e **`DATABASE_URL=postgres://postgres`** são críticos para evitar erros de conexão.
+
+---
+
+### **1.4. Criar o Arquivo `docker-compose.yml`**
+No mesmo diretório, crie o arquivo `docker-compose.yml`:
+
+```bash
+nano docker-compose.yml
+```
+
+Copie e cole:
+
+```yaml
+version: "3.8"
+services:
+  ghostfolio:
+    image: docker.io/ghostfolio/ghostfolio:latest
+    container_name: ghostfolio
+    restart: unless-stopped
+    init: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    env_file:
+      - .env
+    ports:
+      - 3333:3333
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:3333/api/v1/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: docker.io/library/postgres:15-alpine
+    container_name: gf-postgres
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+      - FOWNER
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    env_file:
+      - .env
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -d "$${POSTGRES_DB}" -U $${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  redis:
+    image: docker.io/library/redis:alpine
+    container_name: gf-redis
+    restart: unless-stopped
+    user: '999:1000'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    env_file:
+      - .env
+    command:
+      - /bin/sh
+      - -c
+      - redis-server --requirepass "$${REDIS_PASSWORD:?REDIS_PASSWORD variable is not set}"
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'redis-cli --pass "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres:
+```
+
+---
+
+### **1.5. Subir os Contêineres**
+```bash
+docker compose up -d
+```
+
+Verifique os contêineres:
+```bash
+docker ps
+```
+Acesse o **Ghostfolio** pelo navegador:
+```
+http://localhost:3333
+```
+
+---
+
+## **2. Backup do Banco de Dados**
+
+### **2.1. Backup Manual**
+```bash
+docker exec -t gf-postgres pg_dump -U user -d ghostfolio-db > backup_ghostfolio.sql
+```
+
+### **2.2. Backup Automático Diário**
+Crie um script para gerar backups diários e manter apenas os últimos 7 backups:
+
+```bash
+mkdir -p ~/ghostfolio/backup
+nano ~/ghostfolio/backup/backup_ghostfolio.sh
+```
+
+Adicione o seguinte conteúdo ao script:
+
+```bash
+#!/bin/bash
+BACKUP_DIR=~/ghostfolio/backup
+BACKUP_FILE="$BACKUP_DIR/backup_ghostfolio_$(date +%Y-%m-%d).sql"
+
+# Criar backup do banco de dados
+docker exec -t gf-postgres pg_dump -U user -d ghostfolio-db > "$BACKUP_FILE"
+
+# Manter apenas os últimos 7 backups
+find "$BACKUP_DIR" -type f -name "backup_ghostfolio_*.sql" -mtime +7 -delete
+```
+
+Salve o arquivo e torne-o executável:
+```bash
+chmod +x ~/ghostfolio/backup/backup_ghostfolio.sh
+```
+
+Agora, adicione ao **cron** para rodar automaticamente todos os dias às 2h da manhã:
+```bash
+crontab -e
+```
+Adicione a linha:
+```bash
+0 2 * * * ~/ghostfolio/backup/backup_ghostfolio.sh
+```
+Isso garante um backup diário e mantém os últimos 7 backups para evitar excesso de arquivos.
+
+```bash
+docker exec -t gf-postgres pg_dump -U user -d ghostfolio-db > backup_ghostfolio.sql
+```
+
+---
+
+## **3. Restaurar o Banco de Dados**
+```bash
+docker exec -it gf-postgres psql -U user -d postgres -c "SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE datname = 'ghostfolio-db' AND pid <> pg_backend_pid();" && \
+docker exec -it gf-postgres psql -U user -d postgres -c "DROP DATABASE \"ghostfolio-db\";" && \
+docker exec -it gf-postgres psql -U user -d postgres -c "CREATE DATABASE \"ghostfolio-db\" WITH OWNER \"user\" ENCODING 'UTF8';" && \
+docker exec -i gf-postgres psql -U user -d ghostfolio-db < backup_ghostfolio.sql
+```
+
+---
+
+## **4. Atualizar o Ghostfolio sem Perder os Dados**
+
+1. **Baixar a versão mais recente do Ghostfolio:**
+   ```bash
+   docker compose pull
+   ```
+2. **Reiniciar os contêineres com a nova versão:**
+   ```bash
+   docker compose down && docker compose up -d
+   ```
+3. **Verificar logs para garantir que tudo está funcionando:**
+   ```bash
+   docker logs ghostfolio --tail=50
+   ```
+
+Agora você tem um guia completo! 🚀
+
