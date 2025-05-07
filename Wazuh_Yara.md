@@ -1,74 +1,99 @@
-# 🛡️ Integração YARA com Wazuh Agent
+🛡️ Integração YARA com Wazuh (Atualizado)
+Este guia descreve os passos completos para integrar o mecanismo YARA com o Wazuh, incluindo detecção automatizada via FIM (File Integrity Monitoring) e respostas automáticas (Active Response).
 
-Este guia descreve os passos mínimos necessários para ativar a detecção de malware com YARA nos agentes Wazuh usando a integração do projeto [`wazuh-yara`](https://github.com/ADORSYS-GIS/wazuh-yara).
+📍 WAZUH SERVER
 
----
 
-## 1. 📦 Instalação do mecanismo YARA no agente - Client Endpoint
+🔧 Regras no local_rules.xml
 
-```bash
-curl -SL --progress-bar https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/install.sh | sh
-```
+sudo nano /var/ossec/etc/rules/local_rules.xml
 
-Esse comando:
-
-- Instala o binário **YARA** (caso ainda não esteja presente)
-- Cria o diretório `/var/ossec/wazuh-yara`
-- Cria o script `yara.sh` para varredura automatizada
-- Define a pasta de regras: `/var/ossec/ruleset/yara/rules/yara_rules.yar`
-- Cria um cron job para execução periódica
-- Define `/var/ossec/logs/yara.log` como arquivo de saída da varredura
-
----
-
-## 2. 🖥️ Configuração do agente no `ossec.conf` - Client Endpoint
-
-No arquivo de configuração do agente (`/var/ossec/etc/ossec.conf`), adicione:
-
-```xml
-<localfile>
-  <log_format>syslog</log_format>
-  <location>/var/ossec/logs/yara.log</location>
-</localfile>
-```
-
-✅ Isso instrui o **Wazuh Agent** a monitorar o arquivo `yara.log`, que é gerado automaticamente pelo `yara.sh`.
-
----
-
-## 3. ⚙️ Regra genérica no Manager (`local_rules.xml`) - Server Manager
-
-No Wazuh Manager, adicione o seguinte bloco ao arquivo `/var/ossec/etc/rules/local_rules.xml`:
-
-```xml
-<group name="yara,command,">
-  <rule id="108000" level="0">
-    <if_sid>530</if_sid>
-    <match>^[A-Z_0-9]+ /</match>
-    <description>YARA generic grouping rule</description>
+<group name="syscheck">
+  <rule id="100300" level="1">
+    <if_sid>550</if_sid>
+    <field name="file">/tmp|/var/tmp|/var/www|/home</field>
+    <description>File modified in sensitive directory: Sending it to Yara's scanning.</description>
   </rule>
-
-  <rule id="108001" level="12">
-    <if_sid>108000</if_sid>
-    <description>YARA alert: Malware detected based on rule output</description>
+  <rule id="100301" level="1">
+    <if_sid>554</if_sid>
+    <field name="file">/tmp|/var/tmp|/var/www|/home</field>
+    <description>File added File in sensitive directory: Sending it to Yara's scanning</description>
   </rule>
 </group>
-```
 
-✅ Essa regra:
+<group name="yara">
+  <rule id="108000" level="0">
+    <decoded_as>yara_decoder</decoded_as>
+    <description>Yara grouping rule</description>
+  </rule>
+  <rule id="108001" level="12">
+    <if_sid>108000</if_sid>
+    <match>wazuh-yara: INFO - Scan result: </match>
+    <description>File "$(yara_scanned_file)" is a positive match. Yara rule: $(yara_rule)</description>
+  </rule>
+</group>
 
-- Agrupa eventos de saída do comando YARA
-- Gera alertas de severidade elevada para qualquer detecção
-- Funciona com **qualquer regra `.yar` compatível**
 
----
+🔧 Decodificadores no local_decoder.xml
 
-## ✅ Resultado: Integração completa, modular e replicável
+sudo nano /var/ossec/etc/decoders/local_decoder.xml
 
-Com essa configuração:
+<decoder name="yara_decoder">
+  <prematch>wazuh-yara:</prematch>
+</decoder>
 
-- Detecta-se qualquer ameaça baseada em YARA
-- Os alertas são enviados ao Manager e visíveis no Dashboard (Kibana/Wazuh UI)
-- A estrutura é **portável e padronizada**, ideal para múltiplos endpoints
+<decoder name="yara_decoder1">
+  <parent>yara_decoder</parent>
+  <regex>wazuh-yara: (\S+) - Scan result: (\S+) (.*)</regex>
+  <order>log_type, yara_rule, yara_scanned_file</order>
+</decoder>
 
----
+
+🔧 Comando e Resposta Ativa no ossec.conf
+
+sudo nano /var/ossec/etc/ossec.conf
+Adicionar dentro da tag <ossec_config>:
+
+<command>
+  <name>yara_linux</name>
+  <executable>yara.sh</executable>
+  <extra_args>-yara_path /usr/bin -yara_rules /var/ossec/ruleset/yara/rules/yara_rules.yar</extra_args>
+  <timeout_allowed>no</timeout_allowed>
+</command>
+
+<active-response>
+  <disabled>no</disabled>
+  <command>yara_linux</command>
+  <location>local</location>
+  <rules_id>100300,100301</rules_id>
+</active-response>
+
+
+📍 WAZUH CLIENT (AGENTE)
+
+
+📥 Instalação do YARA e scripts
+
+sudo curl -SL --progress-bar https://raw.githubusercontent.com/ADORSYS-GIS/wazuh-yara/main/scripts/install.sh | sh
+
+
+⚙️ Ativação da monitoração em diretórios críticos
+
+sudo nano /var/ossec/etc/ossec.conf
+Adicionar os diretórios que serão monitorados:
+
+
+<directories realtime="yes">/tmp,/var/tmp,/var/www</directories>
+<directories check_all="yes" realtime="yes">/home/*/Downloads</directories>
+
+
+✅ Resultado Esperado
+
+
+Arquivos criados ou modificados em diretórios críticos serão automaticamente escaneados com YARA.
+
+Detecções serão registradas em /var/ossec/logs/active-responses.log.
+
+Alertas serão enviados ao Wazuh Manager.
+
+Notificações de malware detectado serão exibidas no Dashboard.
