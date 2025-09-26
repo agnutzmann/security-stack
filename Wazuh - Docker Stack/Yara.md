@@ -1,5 +1,5 @@
 
-# 🛡️ Integração YARA com Wazuh (Atualizado)
+# 🛡️ Integração YARA com Wazuh
 
 Este guia descreve os passos completos para integrar o mecanismo YARA com o Wazuh, incluindo detecção automatizada via FIM (File Integrity Monitoring) e respostas automáticas (Active Response).
 
