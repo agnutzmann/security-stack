@@ -156,7 +156,7 @@ name: wazuh
 services:
   # 1. Wazuh Indexer
   wazuh-indexer:
-    image: wazuh/wazuh-indexer:4.7.4
+    image: wazuh/wazuh-indexer:4.13.1
     container_name: wazuh_indexer
     env_file: .env
     hostname: wazuh-indexer
@@ -186,7 +186,7 @@ services:
 
   # 2. Wazuh Manager
   wazuh-manager:
-    image: wazuh/wazuh-manager:4.7.4
+    image: wazuh/wazuh-manager:4.13.1
     container_name: wazuh_manager
     env_file: .env
     hostname: wazuh-manager
@@ -216,7 +216,7 @@ services:
 
   # 3. Wazuh Dashboard
   wazuh-dashboard:
-    image: wazuh/wazuh-dashboard:4.7.4
+    image: wazuh/wazuh-dashboard:4.13.1
     container_name: wazuh_dashboard
     env_file: .env
     hostname: wazuh-dashboard
