@@ -7,54 +7,44 @@ O script foi projetado para ser executado uma única vez, preparando todo o ambi
 ## ✨ Funcionalidades
 
 -   **Automação Completa:** Instalação do zero com um único comando.
+-   **Verificação Inteligente de Pré-requisitos:** Detecta automaticamente as dependências ausentes e informa o comando exato de instalação para sistemas baseados em Debian/Ubuntu e Fedora/RHEL.
 -   **Estrutura Limpa:** Cria um diretório de stack contendo apenas os arquivos essenciais para a operação, sem o "lixo" do repositório Git.
 -   **Segurança por Padrão:**
     -   Gera senhas fortes e aleatórias para todos os componentes internos.
     -   Aplica permissões de arquivo restritivas (`chmod 700/600`) nos certificados e configurações, como exigido pelo plugin de segurança do Wazuh Indexer.
 -   **Manutenção Simplificada:**
-    -   Cria automaticamente scripts de `backup.sh` e `restore.sh` prontos para uso.
+    -   Cria automaticamente scripts de `backup.sh`, `restore.sh` e um modelo de `upgrade.sh` prontos para uso.
     -   O script `backup.sh` faz um backup completo tanto dos arquivos de configuração quanto dos volumes de dados do Docker.
-    -   O script `restore.sh` automatiza a restauração do último backup de volumes.
+    -   O script `restore.sh` automatiza a restauração do último backup de dados.
 -   **Configuração Persistente:** Garante que as configurações de kernel necessárias (`vm.max_map_count`) sobrevivam a uma reinicialização do servidor.
 -   **Compatibilidade:** Detecta e utiliza automaticamente a versão correta do `docker compose` (v2) ou `docker-compose` (v1) presente no sistema.
 
 ## 📋 Pré-requisitos
 
-O sistema host deve ter os seguintes pacotes instalados:
-* Docker
-* Docker Compose (v1 ou v2)
-* Git
-* Python 3 (geralmente os pacotes python3, python3-pip e python3-venv). O script usará estas ferramentas para criar um ambiente virtual temporário e seguro, sem instalar pacotes Python globalmente no sistema.
-* `sed`, `rsync`, `shuf` (geralmente incluídos em `coreutils`)
+O script foi projetado para rodar em sistemas Linux modernos e precisa das seguintes ferramentas para funcionar: Docker, Git e Python 3.
 
-O script verifica se o usuário atual pertence ao grupo `docker`.
+**Não se preocupe em verificar tudo manualmente.** Se alguma dependência estiver faltando, o próprio script irá detectar e informar o comando exato que você precisa executar para instalá-la.
 
 ## 🚀 Como Usar
 
-1.  **Download do Script:**
-    Faça o download do script `install.sh` deste repositório.
+1.  **Faça o download do script**
+    Salve o arquivo `install.sh` em seu diretório home ou onde preferir.
 
-2.  **(Opcional) Customizar Variáveis:**
-    Você pode editar as duas primeiras variáveis no script para alterar a versão do Wazuh ou o diretório de instalação:
-    ```bash
-    readonly WAZUH_VERSION="4.13.1"
-    readonly STACK_DIR="$HOME/stacks/wazuh"
-    ```
-
-3.  **Dar Permissão de Execução:**
+2.  **Dê permissão de execução**
     ```bash
     chmod +x install.sh
     ```
 
-4.  **Executar a Instalação:**
+3.  **Execute o script**
     ```bash
     ./install.sh
     ```
-    O script cuidará de todo o resto. Ao final, ele exibirá o status dos containers, a URL de acesso e as credenciais geradas.
+    -   Se alguma dependência estiver faltando, o script irá parar e fornecer o comando de instalação exato para o seu sistema. Basta copiar, colar, executar o comando sugerido e depois rodar o `./install.sh` novamente.
+    -   Se todos os pré-requisitos estiverem atendidos, a instalação prosseguirá automaticamente até o final.
 
 ## 📁 Estrutura de Arquivos Pós-Instalação
 
-Após a execução, o diretório `STACK_DIR` (`~/stacks/wazuh` por padrão) conterá:
+Após a execução, o diretório de destino (`~/stacks/wazuh` por padrão) conterá:
 
 -   `docker-compose.yml`: O arquivo de orquestração dos containers, já adaptado para usar senhas seguras.
 -   `.env`: Arquivo com todas as senhas geradas. **Trate este arquivo como confidencial.**

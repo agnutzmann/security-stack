@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
+# Script Definitivo (v11) para Instalação Limpa e Robusta do Wazuh Docker
+# - Inclui verificação de pré-requisitos inteligente e informativa.
 
 set -euo pipefail
 
 # --- CONFIGURAÇÕES GERAIS ---
-# CORREÇÃO: Removido 'readonly' para evitar erro no final do script
 WAZUH_VERSION="4.13.1"
 STACK_DIR="$HOME/stacks/wazuh"
 REPO_URL="https://github.com/wazuh/wazuh-docker.git"
@@ -15,10 +16,52 @@ readonly C_YELLOW='\033[0;33m'; readonly C_BLUE='\033[0;34m';
 log_info() { echo -e "${C_BLUE}[INFO]${C_RESET} $1"; }
 log_success() { echo -e "${C_GREEN}[SUCCESS]${C_RESET} $1"; }
 log_warn() { echo -e "${C_YELLOW}[WARNING]${C_RESET} $1"; }
+# Modificado para permitir múltiplas linhas no log_error
 log_error() { echo -e "${C_RED}[ERROR]${C_RESET} $1"; exit 1; }
 
+# MELHORIA: Função de verificação de pré-requisitos inteligente
 check_command() {
-    command -v "$1" >/dev/null 2>&1 || log_error "Comando '$1' não encontrado. Por favor, instale-o."
+    local cmd="$1"
+    # Retorna 0 (sucesso) se o comando já existe
+    command -v "$cmd" &>/dev/null && return 0
+
+    log_warn "Comando '$cmd' não encontrado."
+
+    # Tenta detectar a distribuição do SO
+    if [ -f /etc/os-release ]; then
+        # shellcheck source=/dev/null
+        source /etc/os-release
+        ID=${ID:-unknown}
+    else
+        ID="unknown"
+    fi
+
+    local install_instruction=""
+    local pkg_name="$cmd"
+
+    # Mapeia comandos para os nomes dos pacotes corretos
+    case "$cmd" in
+        python3) pkg_name="python3 python3-pip python3-venv" ;;
+        pip) pkg_name="python3-pip" ;;
+        shuf) pkg_name="coreutils" ;; # Geralmente já vem instalado
+    esac
+
+    # Gera a instrução de instalação para a distro detectada
+    case $ID in
+        ubuntu|debian)
+            install_instruction="sudo apt update && sudo apt install -y $pkg_name"
+            ;;
+        fedora|centos|rhel)
+            # Para Docker, o pacote geralmente é docker-ce
+            if [ "$cmd" == "docker" ]; then pkg_name="docker-ce"; fi
+            install_instruction="sudo dnf install -y $pkg_name"
+            ;;
+        *)
+            install_instruction="Por favor, use o gerenciador de pacotes da sua distribuição para instalar '$pkg_name'."
+            ;;
+    esac
+
+    log_error "Instalação de pré-requisito necessária. Por favor, execute o seguinte comando e rode o script novamente:\n\n  ${install_instruction}\n"
 }
 
 gen_pass() {
@@ -112,7 +155,9 @@ log_info "Criando scripts de manutenção..."; cat > backup.sh <<'EOS'
 set -euo pipefail; DATE=$(date +%Y-%m-%d_%H-%M); STACK_DIR="$(cd "$(dirname "$0")" && pwd)"; BACKUP_DIR="${STACK_DIR}/backups"; mkdir -p "$BACKUP_DIR"
 CONFIG_BACKUP_FILE="${BACKUP_DIR}/wazuh-config-backup-${DATE}.tgz"; VOLUMES_BACKUP_FILE="${BACKUP_DIR}/wazuh-volumes-backup-${DATE}.tgz"
 echo "[INFO] Backup dos arquivos de configuração..."; tar -czf "${CONFIG_BACKUP_FILE}" -C "${STACK_DIR}" .env docker-compose.yml config *.sh
-PROJECT_NAME=$(basename "${STACK_DIR}"); VOLUMES_TO_BACKUP=( $(docker volume ls --format '{{.Name}}' | grep "^${PROJECT_NAME}_" || true) )
+if docker compose version &>/dev/null; then DC="docker compose"; else DC="docker-compose"; fi
+PROJECT_NAME=$($DC ps --format '{{.Name}}' | head -n1 | cut -d- -f1)
+VOLUMES_TO_BACKUP=( $(docker volume ls --format '{{.Name}}' | grep "^${PROJECT_NAME}_" || true) )
 if [ ${#VOLUMES_TO_BACKUP[@]} -eq 0 ]; then echo "[WARN] Nenhum volume Docker encontrado para backup."; exit 0; fi
 echo "[INFO] Backup de ${#VOLUMES_TO_BACKUP[@]} volumes de dados..."; docker run --rm -v "${BACKUP_DIR}:/backup" $(for volume in "${VOLUMES_TO_BACKUP[@]}"; do echo "-v ${volume}:/data/${volume}:ro"; done) alpine tar czf "/backup/$(basename ${VOLUMES_BACKUP_FILE})" -C /data .
 echo "[SUCCESS] Backup concluído!"
@@ -126,7 +171,8 @@ if [ -z "$LATEST_VOL_BACKUP" ]; then echo "[ERROR] Nenhum backup de volumes enco
 echo "[INFO] Usando o backup de volumes mais recente: $LATEST_VOL_BACKUP"
 if docker compose version &>/dev/null; then DC="docker compose"; else DC="docker-compose"; fi
 echo "[INFO] Parando os serviços..."; $DC down
-PROJECT_NAME=$(basename "${STACK_DIR}"); VOLUMES_TO_RESTORE=( $(docker volume ls --format '{{.Name}}' | grep "^${PROJECT_NAME}_" || true) )
+PROJECT_NAME=$($DC ps --format '{{.Name}}' | head -n1 | cut -d- -f1)
+VOLUMES_TO_RESTORE=( $(docker volume ls --format '{{.Name}}' | grep "^${PROJECT_NAME}_" || true) )
 echo "[INFO] Restaurando ${#VOLUMES_TO_RESTORE[@]} volumes..."; docker run --rm -v "${LATEST_VOL_BACKUP}:/backup.tgz:ro" $(for volume in "${VOLUMES_TO_RESTORE[@]}"; do echo "-v ${volume}:/data/${volume}"; done) alpine sh -c "cd /data && tar xzf /backup.tgz --strip-components=1"
 echo "[INFO] Iniciando os serviços..."; $DC up -d
 echo "[SUCCESS] Restauração concluída!"
@@ -136,8 +182,8 @@ chmod +x backup.sh restore.sh; log_success "Scripts backup.sh e restore.sh criad
 # PASSO 9: Verificação final e Mensagem
 log_info "Aguardando a inicialização dos containers para verificação (até 60s)..."
 for i in {1..12}; do
-    # Conta containers com o nome do projeto no nome, que estejam em execução
-    RUNNING_CONTAINERS=$($DC ps --status running | grep "$(basename $STACK_DIR)" | wc -l)
+    PROJECT_NAME=$($DC ps --format '{{.Name}}' | head -n1 | cut -d- -f1)
+    RUNNING_CONTAINERS=$($DC ps --status running | grep "${PROJECT_NAME}" | wc -l)
     if [ "$RUNNING_CONTAINERS" -eq 3 ]; then
         log_success "Todos os 3 containers estão no ar!"
         break
@@ -158,4 +204,4 @@ log_info "Status final dos containers:"; $DC ps; echo
 log_info "Acesse o Dashboard Wazuh em: https://${ip_host}:${WAZUH_DASHBOARD_PORT}"
 log_info "Usuário para login: admin"; log_info "Senha gerada: ${ADMIN_PASS}"; echo
 log_warn "Guarde esta senha em um local seguro!"
-log_info "Manutenção: ./backup.sh | ./restore.sh | ./upgrade.sh (upgrade.sh ainda precisa ser criado/adaptado)"
+log_info "Manutenção: ./backup.sh | ./restore.sh | ./upgrade.sh (upgrade.sh precisa ser criado)"
