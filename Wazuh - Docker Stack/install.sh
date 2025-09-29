@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 #
-# Script Definitivo (v9 - Edição de Autor) para Instalação Limpa e Robusta do Wazuh Docker
-# 
 
 set -euo pipefail
 
 # --- CONFIGURAÇÕES GERAIS ---
-readonly WAZUH_VERSION="4.13.1"
-readonly STACK_DIR="$HOME/stacks/wazuh"
-readonly REPO_URL="https://github.com/wazuh/wazuh-docker.git"
+# CORREÇÃO: Removido 'readonly' para evitar erro no final do script
+WAZUH_VERSION="4.13.1"
+STACK_DIR="$HOME/stacks/wazuh"
+REPO_URL="https://github.com/wazuh/wazuh-docker.git"
 
 # --- CORES E FUNÇÕES AUXILIARES ---
 readonly C_RESET='\033[0m'; readonly C_RED='\033[0;31m'; readonly C_GREEN='\033[0;32m';
@@ -36,7 +35,6 @@ for cmd in docker git python3 pip shuf sed rsync; do check_command "$cmd"; done
 if ! groups "$USER" | grep -q '\bdocker\b'; then
     log_error "Usuário $USER não pertence ao grupo 'docker'. Execute 'sudo usermod -aG docker $USER', faça logout/login e rode novamente."
 fi
-# MELHORIA: Compatibilidade com docker-compose (v1) e docker compose (v2)
 if docker compose version &>/dev/null; then DC="docker compose";
 elif docker-compose version &>/dev/null; then DC="docker-compose";
 else log_error "Nenhuma versão do Docker Compose foi encontrada."; fi
@@ -68,13 +66,11 @@ chmod 600 .env; log_success "Arquivo .env criado."
 
 # PASSO 4: Adaptar docker-compose.yml
 log_info "Adaptando o docker-compose.yml..."
-# Adapta as senhas
 sed -i -e "s|INDEXER_PASSWORD=SecretPassword|INDEXER_PASSWORD=\${INDEXER_PASSWORD}|g" \
     -e "s|API_PASSWORD=MyS3cr37P450r.\*-|API_PASSWORD=\${API_PASSWORD}|g" \
     -e "s|DASHBOARD_PASSWORD=kibanaserver|DASHBOARD_PASSWORD=\${DASHBOARD_PASSWORD}|g" \
+    -e "s|\"443:5601\"|\"\${WAZUH_DASHBOARD_PORT}:5601\"|g" \
     docker-compose.yml
-# Adapta a porta do Dashboard
-sed -i -e "s|\"443:5601\"|\"\${WAZUH_DASHBOARD_PORT}:5601\"|g" docker-compose.yml
 log_success "docker-compose.yml adaptado."
 
 # PASSO 5: Gerar certificados e corrigir permissões
@@ -140,15 +136,15 @@ chmod +x backup.sh restore.sh; log_success "Scripts backup.sh e restore.sh criad
 # PASSO 9: Verificação final e Mensagem
 log_info "Aguardando a inicialização dos containers para verificação (até 60s)..."
 for i in {1..12}; do
-    RUNNING_CONTAINERS=$($DC ps --status running | wc -l)
-    # wc -l includes the header, so we check for 4 (header + 3 containers)
-    if [ "$RUNNING_CONTAINERS" -eq 4 ]; then
+    # Conta containers com o nome do projeto no nome, que estejam em execução
+    RUNNING_CONTAINERS=$($DC ps --status running | grep "$(basename $STACK_DIR)" | wc -l)
+    if [ "$RUNNING_CONTAINERS" -eq 3 ]; then
         log_success "Todos os 3 containers estão no ar!"
         break
     fi
     sleep 5
 done
-if [ "$RUNNING_CONTAINERS" -ne 4 ]; then
+if [ "$RUNNING_CONTAINERS" -ne 3 ]; then
     log_warn "Nem todos os containers subiram corretamente. Verifique os logs com: $DC logs"
 fi
 
@@ -159,7 +155,6 @@ source .env; ip_host=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
 echo; log_success "--------------------------------------------------------"
 log_success " INSTALAÇÃO DO WAZUH CONCLUÍDA!"; log_success "--------------------------------------------------------"; echo
 log_info "Status final dos containers:"; $DC ps; echo
-# MELHORIA: Usa a variável de porta para exibir a URL correta
 log_info "Acesse o Dashboard Wazuh em: https://${ip_host}:${WAZUH_DASHBOARD_PORT}"
 log_info "Usuário para login: admin"; log_info "Senha gerada: ${ADMIN_PASS}"; echo
 log_warn "Guarde esta senha em um local seguro!"

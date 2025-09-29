@@ -24,7 +24,7 @@ O sistema host deve ter os seguintes pacotes instalados:
 * Docker
 * Docker Compose (v1 ou v2)
 * Git
-* Python 3 & Pip
+* Python 3 (geralmente os pacotes python3, python3-pip e python3-venv). O script usará estas ferramentas para criar um ambiente virtual temporário e seguro, sem instalar pacotes Python globalmente no sistema.
 * `sed`, `rsync`, `shuf` (geralmente incluídos em `coreutils`)
 
 O script verifica se o usuário atual pertence ao grupo `docker`.
