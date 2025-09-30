@@ -1,93 +1,120 @@
-# Wazuh Docker: Instalação Automatizada e Robusta
+#!/usr/bin/env bash
+#
+# Script Definitivo (v15 Gold - Estável) para Instalação do Wazuh Docker
+# - Usa a senha padrão da API para garantir compatibilidade e estabilidade.
+# - Incorpora todas as melhorias de robustez (healthchecks, prereqs, etc.).
 
-Este repositório contém um script de instalação automatizado para implantar uma stack completa do Wazuh (Manager, Indexer, Dashboard) usando Docker. O objetivo é fornecer um método rápido, seguro e de fácil manutenção para subir um ambiente Wazuh single-node em qualquer máquina Linux com Docker.
+set -euo pipefail
 
-O script foi projetado para ser executado uma única vez, preparando todo o ambiente com as melhores práticas de segurança e gerando ferramentas para manutenção futura.
+# --- CONFIGURAÇÕES GERAIS ---
+WAZUH_VERSION="4.13.1"; STACK_DIR="$HOME/stacks/wazuh"; REPO_URL="https://github.com/wazuh/wazuh-docker.git"
 
-## ✨ Funcionalidades
+# --- CORES E FUNÇÕES AUXILIARES ---
+readonly C_RESET='\033[0m'; readonly C_RED='\033[0;31m'; readonly C_GREEN='\033[0;32m';
+readonly C_YELLOW='\033[0;33m'; readonly C_BLUE='\033[0;34m';
+log_info() { echo -e "${C_BLUE}[INFO]${C_RESET} $1"; }; log_success() { echo -e "${C_GREEN}[SUCCESS]${C_RESET} $1"; }
+log_warn() { echo -e "${C_YELLOW}[WARNING]${C_RESET} $1"; }; log_error() { echo -e "${C_RED}[ERROR]${C_RESET} $1"; exit 1; }
 
--   **Automação Completa:** Instalação do zero com um único comando.
--   **Verificação Inteligente de Pré-requisitos:** Detecta automaticamente as dependências ausentes e informa o comando exato de instalação para sistemas baseados em Debian/Ubuntu e Fedora/RHEL.
--   **Estrutura Limpa:** Cria um diretório de stack contendo apenas os arquivos essenciais para a operação, sem o "lixo" do repositório Git.
--   **Segurança por Padrão:**
-    -   Gera senhas fortes e aleatórias para todos os componentes internos.
-    -   Aplica permissões de arquivo restritivas (`chmod 700/600`) nos certificados e configurações, como exigido pelo plugin de segurança do Wazuh Indexer.
--   **Manutenção Simplificada:**
-    -   Cria automaticamente scripts de `backup.sh`, `restore.sh` e um modelo de `upgrade.sh` prontos para uso.
-    -   O script `backup.sh` faz um backup completo tanto dos arquivos de configuração quanto dos volumes de dados do Docker.
-    -   O script `restore.sh` automatiza a restauração do último backup de dados.
--   **Configuração Persistente:** Garante que as configurações de kernel necessárias (`vm.max_map_count`) sobrevivam a uma reinicialização do servidor.
--   **Compatibilidade:** Detecta e utiliza automaticamente a versão correta do `docker compose` (v2) ou `docker-compose` (v1) presente no sistema.
+check_command() {
+    local cmd="$1"
+    if [[ "$cmd" == "python3-venv" ]]; then if python3 -c "import venv" &>/dev/null; then return 0; fi
+    elif command -v "$cmd" &>/dev/null; then return 0; fi
+    log_warn "Dependência '$cmd' não encontrada."
+    if [ -f /etc/os-release ]; then source /etc/os-release; ID=${ID:-unknown}; else ID="unknown"; fi
+    local install_instruction=""; local pkg_name="$cmd"
+    case "$cmd" in python3|pip|python3-venv) pkg_name="python3 python3-pip python3-venv" ;; shuf) pkg_name="coreutils" ;; esac
+    case $ID in ubuntu|debian) install_instruction="sudo apt update && sudo apt install -y $pkg_name";; fedora|centos|rhel) if [ "$cmd" == "docker" ]; then pkg_name="docker-ce"; fi; install_instruction="sudo dnf install -y $pkg_name";; *) install_instruction="Por favor, use o gerenciador de pacotes da sua distribuição para instalar '$pkg_name'.";; esac
+    log_error "Instalação de pré-requisito necessária. Por favor, execute:\n\n  ${install_instruction}\n"
+}
 
-## 📋 Pré-requisitos
+gen_pass() {
+    local pass_length=20; local upper=$(tr -dc 'A-Z' < /dev/urandom | head -c 1)
+    local lower=$(tr -dc 'a-z' < /dev/urandom | head -c 1); local digit=$(tr -dc '0-9' < /dev/urandom | head -c 1)
+    local special=$(tr -dc '@#$%&*' < /dev/urandom | head -c 1); local rest=$(tr -dc 'A-Za-z0-9@#$%&*' < /dev/urandom | head -c $((pass_length - 4)))
+    local combined="${upper}${lower}${digit}${special}${rest}"; echo "$combined" | fold -w1 | shuf | tr -d '\n'
+}
 
-O script foi projetado para rodar em sistemas Linux modernos e precisa das seguintes ferramentas para funcionar: Docker, Git e Python 3.
+# --- FLUXO PRINCIPAL ---
+log_info "Verificando pré-requisitos..."; for cmd in docker git python3 pip python3-venv shuf sed rsync; do check_command "$cmd"; done
+if ! groups "$USER" | grep -q '\bdocker\b'; then log_error "Usuário $USER não pertence ao grupo 'docker'. Execute 'sudo usermod -aG docker $USER', faça logout/login e rode novamente."; fi
+if docker compose version &>/dev/null; then DC="docker compose"; elif docker-compose version &>/dev/null; then DC="docker-compose"; else log_error "Nenhuma versão do Docker Compose foi encontrada."; fi
+log_success "Pré-requisitos atendidos (usando '$DC')."
 
-**Não se preocupe em verificar tudo manualmente.** Se alguma dependência estiver faltando, o próprio script irá detectar e informar o comando exato que você precisa executar para instalá-la.
+log_info "Preparando o diretório da stack em ${STACK_DIR}..."; mkdir -p "$STACK_DIR"; TEMP_DIR=$(mktemp -d)
+log_info "Clonando repositório Wazuh Docker (v$WAZUH_VERSION)..."
+git -c advice.detachedHead=false clone --depth 1 --branch "v$WAZUH_VERSION" "$REPO_URL" "$TEMP_DIR" > /dev/null
+log_info "Copiando apenas os arquivos essenciais para a stack..."; rsync -a "${TEMP_DIR}/single-node/" "$STACK_DIR/"; rm -rf "$TEMP_DIR"; cd "$STACK_DIR"
+log_success "Estrutura da stack limpa criada em $(pwd)"
 
-## 🚀 Como Usar
+log_info "Gerando senhas e criando arquivo .env..."; ADMIN_PASS=$(gen_pass); DASHBOARD_PASS=$(gen_pass)
+cat > .env <<EOL
+WAZUH_VERSION=${WAZUH_VERSION}
+WAZUH_DASHBOARD_PORT=443
+INDEXER_PASSWORD='${ADMIN_PASS}'
+API_PASSWORD='MyS3cr37P450r.*-'
+DASHBOARD_PASSWORD='${DASHBOARD_PASS}'
+EOL
+chmod 600 .env; log_success "Arquivo .env criado."
 
-1.  **Faça o download do script**
-    Salve o arquivo `install.sh` em seu diretório home ou onde preferir.
+log_info "Adaptando o docker-compose.yml com health checks..."; cp docker-compose.yml docker-compose.yml.orig
+sed -i -e "s|INDEXER_PASSWORD=SecretPassword|INDEXER_PASSWORD=\${INDEXER_PASSWORD}|g" \
+    -e "s|DASHBOARD_PASSWORD=kibanaserver|DASHBOARD_PASSWORD=\${DASHBOARD_PASSWORD}|g" \
+    -e "s|\"443:5601\"|\"\${WAZUH_DASHBOARD_PORT}:5601\"|g" \
+    docker-compose.yml
+sed -i '/hostname: wazuh.indexer/a \
+    healthcheck:\n\
+      test: ["CMD-SHELL", "curl -k -u admin:\${INDEXER_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow\&timeout=5s"]\n\
+      interval: 10s\n\
+      timeout: 5s\n\
+      retries: 20' docker-compose.yml
+sed -i '/hostname: wazuh.manager/a \
+    healthcheck:\n\
+      test: ["CMD-SHELL", "curl -k -u wazuh-wui:MyS3cr37P450r.*- https://localhost:55000/manager/info"]\n\
+      interval: 10s\n\
+      timeout: 5s\n\
+      retries: 20' docker-compose.yml
+sed -i '/depends_on:/a \
+      wazuh.indexer:\n\
+        condition: service_healthy\n\
+      wazuh.manager:\n\
+        condition: service_healthy' docker-compose.yml
+sed -i '/- wazuh.indexer/d' docker-compose.yml
+log_success "docker-compose.yml adaptado."
 
-2.  **Dê permissão de execução**
-    ```bash
-    chmod +x install.sh
-    ```
+log_info "Gerando certificados internos..."; $DC -f generate-indexer-certs.yml down -v 2>/dev/null || true
+$DC -f generate-indexer-certs.yml run --rm generator
+log_success "Certificados gerados."; log_info "Corrigindo dono e permissões dos arquivos..."
+sudo chown -R "$USER":"$USER" ./config; find ./config -type d -exec chmod 700 {} \;; find ./config -type f -exec chmod 600 {} \;
+log_success "Dono e permissões corrigidos."
 
-3.  **Execute o script**
-    ```bash
-    ./install.sh
-    ```
-    -   Se alguma dependência estiver faltando, o script irá parar e fornecer o comando de instalação exato para o seu sistema. Basta copiar, colar, executar o comando sugerido e depois rodar o `./install.sh` novamente.
-    -   Se todos os pré-requisitos estiverem atendidos, a instalação prosseguirá automaticamente até o final.
+log_info "Atualizando hashes de senha em 'internal_users.yml'..."
+venv_dir=".py_venv"; python3 -m venv "$venv_dir"; source "$venv_dir/bin/activate"
+pip install --quiet "passlib==1.7.4" "bcrypt==3.2.2"
+internal_users_file="./config/wazuh_indexer/internal_users.yml"
+hash_admin=$(python3 -c "from passlib.hash import bcrypt; print(bcrypt.hash('$ADMIN_PASS'))")
+hash_kibanaserver=$(python3 -c "from passlib.hash import bcrypt; print(bcrypt.hash('$DASHBOARD_PASS'))")
+escaped_hash_admin=$(printf '%s\n' "$hash_admin" | sed 's:[][\\/.^$*]:\\&:g')
+escaped_hash_kibanaserver=$(printf '%s\n' "$hash_kibanaserver" | sed 's:[][\\/.^$*]:\\&:g')
+sed -i "/^admin:/,/^[^ ]/ s|^\(\s*hash:\s*\).*|\1\"$escaped_hash_admin\"|" "$internal_users_file"
+sed -i "/^kibanaserver:/,/^[^ ]/ s|^\(\s*hash:\s*\).*|\1\"$escaped_hash_kibanaserver\"|" "$internal_users_file"
+deactivate; rm -rf "$venv_dir"; log_success "Hashes de senha sincronizados."
 
-## 📁 Estrutura de Arquivos Pós-Instalação
+log_info "Ajustando vm.max_map_count de forma permanente..."
+if ! grep -q "vm.max_map_count=262144" /etc/sysctl.conf; then echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf > /dev/null; fi
+sudo sysctl -p > /dev/null; log_success "Configuração do kernel aplicada."
 
-Após a execução, o diretório de destino (`~/stacks/wazuh` por padrão) conterá:
+log_info "Iniciando a stack Wazuh (pode levar alguns minutos para os health checks passarem)..."
+$DC down -v --remove-orphans 2>/dev/null || true
+$DC up -d; log_success "Comando de inicialização enviado."
 
--   `docker-compose.yml`: O arquivo de orquestração dos containers, já adaptado para usar senhas seguras.
--   `.env`: Arquivo com todas as senhas geradas. **Trate este arquivo como confidencial.**
--   `config/`: Diretório contendo todos os certificados e arquivos de configuração (`internal_users.yml`, etc.).
--   `backups/`: Diretório onde os backups serão salvos.
--   `backup.sh`: Script para executar um backup completo da stack.
--   `restore.sh`: Script para restaurar o último backup de dados.
--   `upgrade.sh`: Script auxiliar para facilitar o processo de upgrade de versão.
+log_info "Aguardando o Dashboard ficar pronto (timeout de 5 minutos)..."
+HEALTHY=false; for i in {1..30}; do if $DC logs wazuh.dashboard 2>/dev/null | grep -q "Server running at"; then log_success "Dashboard está no ar!"; HEALTHY=true; break; fi; echo -n "."; sleep 10; done; echo
+if [ "$HEALTHY" = "false" ]; then log_error "O Dashboard não iniciou a tempo. Verifique os logs com: $DC logs wazuh.dashboard"; fi
 
-## 🔧 Manutenção
-
-Os scripts a seguir são gerados automaticamente e devem ser executados de dentro do diretório da stack.
-
-### Backup
-
-Para criar um backup completo da configuração e dos dados:
-```bash
-./backup.sh
-```
-Dois arquivos `.tgz` serão criados no diretório `backups/`.
-
-### Restauração
-
-Para restaurar o último backup de dados (isso irá parar os containers e sobrescrever os dados atuais):
-```bash
-./restore.sh
-```
-
-### Upgrade
-
-Para atualizar a versão do Wazuh:
-1.  Edite o arquivo `.env` e altere a variável `WAZUH_VERSION`.
-2.  Execute o script de upgrade:
-    ```bash
-    ./upgrade.sh
-    ```
-    O script fará um backup antes de iniciar o processo de atualização.
-
-## 🛡️ Considerações de Segurança
-
--   **Senhas no Docker Inspect:** Este método de instalação usa variáveis de ambiente para passar as senhas para os containers, conforme a documentação oficial do Wazuh. Esteja ciente de que qualquer usuário com acesso ao socket do Docker no host pode inspecionar os containers (`docker inspect`) e ver as senhas em texto plano. Proteja o acesso ao seu host Docker.
--   **Criptografia de Backups:** O script de backup não criptografa os arquivos `.tgz` por padrão. Para ambientes de produção, considere adicionar uma etapa de criptografia usando `gpg` ou `age` após a criação do backup.
-
-## 📄 Licença
-
-Este projeto é de código aberto. Sinta-se à vontade para usar e modificar.
+source .env; ip_host=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
+echo; log_success "--------------------------------------------------------"
+log_success " INSTALAÇÃO DO WAZUH CONCLUÍDA!"; log_success "--------------------------------------------------------"; echo
+log_info "Status final dos containers:"; $DC ps; echo
+log_info "Acesse o Dashboard Wazuh em: https://${ip_host}:${WAZUH_DASHBOARD_PORT}"
+log_info "Usuário para login: admin"; log_info "Senha gerada: ${ADMIN_PASS}"; echo
+log_warn "Guarde esta senha em um local seguro!"
