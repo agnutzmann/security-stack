@@ -1,4 +1,3 @@
-```markdown
 # Nuclei Intelligent Automation — Service-Driven Scanning
 
 Este projeto fornece um conjunto de scripts para executar varreduras de vulnerabilidade de forma automatizada, inteligente e eficiente usando **ProjectDiscovery Nuclei** com Docker.
@@ -150,6 +149,3 @@ Ao ser executado, o script exibe uma mensagem de ajuda detalhada se os argumento
   * **Gerenciamento de Resultados:** Armazene os resultados em um local seguro e versionado. Integre com ferramentas de SIEM (Wazuh, Splunk) ou plataformas de correlação (OpenCTI, DefectDojo).
 
 -----
-
-```
-```
