@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# Script: run-scan.sh (Version 1.2.0 - Polished)
+# Script: run-scan.sh (Version 1.0.0)
 # Function: Runs an intelligent, service-driven Nuclei scan by dynamically
 #           building tags from Nmap results.
 # Author: Alexandre Gnutzmann (gnu-it.com)
