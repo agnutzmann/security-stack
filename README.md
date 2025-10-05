@@ -1,4 +1,4 @@
-# 🧠 Open Source SOC & AppSec Stack — Guia Completo para Laboratório Moderno
+# 🧠 Open Source Security Stacks
 
 Este documento reúne as melhores práticas, ferramentas e recomendações para criar um stack SOC e AppSec **totalmente open source**, leve, moderno e fácil de integrar — pronto para ambientes de laboratório com até **20 máquinas** ou implantação inicial em projetos para clientes.
 
