@@ -1,93 +1,100 @@
-# Wazuh Docker: Instalação Automatizada e Robusta.
+# Wazuh Docker: Automated and Robust Installation
 
-Este repositório contém um script de instalação automatizado para implantar uma stack completa do Wazuh (Manager, Indexer, Dashboard) usando Docker. O objetivo é fornecer um método rápido, seguro e de fácil manutenção para subir um ambiente Wazuh single-node em qualquer máquina Linux com Docker.
+This repository contains an automated installation script to deploy a complete Wazuh stack (Manager, Indexer, Dashboard) using Docker. The goal is to provide a fast, secure, and low-maintenance method to bring up a single-node Wazuh environment on any Linux machine with Docker.
 
-O script foi projetado para ser executado uma única vez, preparando todo o ambiente com as melhores práticas de segurança e gerando ferramentas para manutenção futura.
+The script is designed to be run once, preparing the entire environment with security best practices and generating tools for future maintenance.
 
-## ✨ Funcionalidades
+## ✨ Features
 
--   **Automação Completa:** Instalação do zero com um único comando.
--   **Verificação Inteligente de Pré-requisitos:** Detecta automaticamente as dependências ausentes e informa o comando exato de instalação para sistemas baseados em Debian/Ubuntu e Fedora/RHEL.
--   **Estrutura Limpa:** Cria um diretório de stack contendo apenas os arquivos essenciais para a operação, sem o "lixo" do repositório Git.
--   **Segurança por Padrão:**
-    -   Gera senhas fortes e aleatórias para todos os componentes internos.
-    -   Aplica permissões de arquivo restritivas (`chmod 700/600`) nos certificados e configurações, como exigido pelo plugin de segurança do Wazuh Indexer.
--   **Manutenção Simplificada:**
-    -   Cria automaticamente scripts de `backup.sh`, `restore.sh` e um modelo de `upgrade.sh` prontos para uso.
-    -   O script `backup.sh` faz um backup completo tanto dos arquivos de configuração quanto dos volumes de dados do Docker.
-    -   O script `restore.sh` automatiza a restauração do último backup de dados.
--   **Configuração Persistente:** Garante que as configurações de kernel necessárias (`vm.max_map_count`) sobrevivam a uma reinicialização do servidor.
--   **Compatibilidade:** Detecta e utiliza automaticamente a versão correta do `docker compose` (v2) ou `docker-compose` (v1) presente no sistema.
+  - **Full Automation:** Zero-to-hero installation with a single command.
+  - **Intelligent Prerequisite Check:** Automatically detects missing dependencies and provides the exact installation command for Debian/Ubuntu and Fedora/RHEL-based systems.
+  - **Clean Structure:** Creates a stack directory containing only the essential files for operation, without the clutter from the Git repository.
+  - **Secure by Default:**
+      - Generates strong, random passwords for all internal components.
+      - Applies restrictive file permissions (`chmod 700/600`) to certificates and configurations, as required by the Wazuh Indexer security plugin.
+  - **Simplified Maintenance:**
+      - Automatically creates ready-to-use `backup.sh`, `restore.sh`, and a template `upgrade.sh` script.
+      - The `backup.sh` script performs a full backup of both configuration files and Docker data volumes.
+      - The `restore.sh` script automates the restoration of the latest data backup.
+  - **Persistent Configuration:** Ensures that necessary kernel settings (`vm.max_map_count`) survive a server reboot.
+  - **Compatibility:** Automatically detects and uses the correct version of `docker compose` (v2) or `docker-compose` (v1) present on the system.
 
-## 📋 Pré-requisitos
+## 📋 Prerequisites
 
-O script foi projetado para rodar em sistemas Linux modernos e precisa das seguintes ferramentas para funcionar: Docker, Git e Python 3.
+The script is designed to run on modern Linux systems and requires the following tools to function: Docker, Git, and Python 3.
 
-**Não se preocupe em verificar tudo manualmente.** Se alguma dependência estiver faltando, o próprio script irá detectar e informar o comando exato que você precisa executar para instalá-la.
+**Don't worry about checking everything manually.** If any dependency is missing, the script itself will detect it and provide the exact command you need to run to install it.
 
-## 🚀 Como Usar
+## 🚀 How to Use
 
-1.  **Faça o download do script**
-    Salve o arquivo `install.sh` em seu diretório home ou onde preferir.
+1.  **Download the script**
+    Save the `install.sh` file to your home directory or wherever you prefer.
 
-2.  **Dê permissão de execução**
+2.  **Make it executable**
+
     ```bash
     chmod +x install.sh
     ```
 
-3.  **Execute o script**
+3.  **Run the script**
+
     ```bash
     ./install.sh
     ```
-    -   Se alguma dependência estiver faltando, o script irá parar e fornecer o comando de instalação exato para o seu sistema. Basta copiar, colar, executar o comando sugerido e depois rodar o `./install.sh` novamente.
-    -   Se todos os pré-requisitos estiverem atendidos, a instalação prosseguirá automaticamente até o final.
 
-## 📁 Estrutura de Arquivos Pós-Instalação
+      - If any dependencies are missing, the script will stop and provide the exact installation command for your system. Simply copy, paste, run the suggested command, and then run `./install.sh` again.
+      - If all prerequisites are met, the installation will proceed automatically to completion.
 
-Após a execução, o diretório de destino (`~/stacks/wazuh` por padrão) conterá:
+## 📁 Post-Installation File Structure
 
--   `docker-compose.yml`: O arquivo de orquestração dos containers, já adaptado para usar senhas seguras.
--   `.env`: Arquivo com todas as senhas geradas. **Trate este arquivo como confidencial.**
--   `config/`: Diretório contendo todos os certificados e arquivos de configuração (`internal_users.yml`, etc.).
--   `backups/`: Diretório onde os backups serão salvos.
--   `backup.sh`: Script para executar um backup completo da stack.
--   `restore.sh`: Script para restaurar o último backup de dados.
--   `upgrade.sh`: Script auxiliar para facilitar o processo de upgrade de versão.
+After execution, the destination directory (`~/stacks/wazuh` by default) will contain:
 
-## 🔧 Manutenção
+  - `docker-compose.yml`: The container orchestration file, already adapted to use secure passwords.
+  - `.env`: A file with all the generated passwords. **Treat this file as confidential.**
+  - `config/`: A directory containing all certificates and configuration files (`internal_users.yml`, etc.).
+  - `backups/`: The directory where backups will be saved.
+  - `backup.sh`: A script to perform a full backup of the stack.
+  - `restore.sh`: A script to restore the latest data backup.
+  - `upgrade.sh`: A helper script to facilitate the version upgrade process.
 
-Os scripts a seguir são gerados automaticamente e devem ser executados de dentro do diretório da stack.
+## 🔧 Maintenance
+
+The following scripts are generated automatically and should be run from within the stack directory.
 
 ### Backup
 
-Para criar um backup completo da configuração e dos dados:
+To create a full backup of the configuration and data:
+
 ```bash
 ./backup.sh
 ```
-Dois arquivos `.tgz` serão criados no diretório `backups/`.
 
-### Restauração
+Two `.tgz` files will be created in the `backups/` directory.
 
-Para restaurar o último backup de dados (isso irá parar os containers e sobrescrever os dados atuais):
+### Restore
+
+To restore the latest data backup (this will stop the containers and overwrite the current data):
+
 ```bash
 ./restore.sh
 ```
 
 ### Upgrade
 
-Para atualizar a versão do Wazuh:
-1.  Edite o arquivo `.env` e altere a variável `WAZUH_VERSION`.
-2.  Execute o script de upgrade:
+To upgrade the Wazuh version:
+
+1.  Edit the `.env` file and change the `WAZUH_VERSION` variable.
+2.  Run the upgrade script:
     ```bash
     ./upgrade.sh
     ```
-    O script fará um backup antes de iniciar o processo de atualização.
+    The script will perform a backup before starting the upgrade process.
 
-## 🛡️ Considerações de Segurança
+## 🛡️ Security Considerations
 
--   **Senhas no Docker Inspect:** Este método de instalação usa variáveis de ambiente para passar as senhas para os containers, conforme a documentação oficial do Wazuh. Esteja ciente de que qualquer usuário com acesso ao socket do Docker no host pode inspecionar os containers (`docker inspect`) e ver as senhas em texto plano. Proteja o acesso ao seu host Docker.
--   **Criptografia de Backups:** O script de backup não criptografa os arquivos `.tgz` por padrão. Para ambientes de produção, considere adicionar uma etapa de criptografia usando `gpg` ou `age` após a criação do backup.
+  - **Passwords in Docker Inspect:** This installation method uses environment variables to pass passwords to the containers, as per the official Wazuh documentation. Be aware that any user with access to the Docker socket on the host can inspect the containers (`docker inspect`) and see the passwords in plaintext. Secure access to your Docker host.
+  - **Backup Encryption:** The backup script does not encrypt the `.tgz` files by default. For production environments, consider adding an encryption step using `gpg` or `age` after the backup is created.
 
-## 📄 Licença
+## 📄 License
 
-Este projeto é de código aberto. Sinta-se à vontade para usar e modificar.
+This project is open-source. Feel free to use and modify it.

@@ -1,184 +1,186 @@
+Of course. Here is the English translation of the document.
+
 # 🧠 Open Source Security Stacks
 
-Este documento reúne as melhores práticas, ferramentas e recomendações para criar um stack SOC e AppSec **totalmente open source**, leve, moderno e fácil de integrar — pronto para ambientes de laboratório com até **20 máquinas** ou implantação inicial em projetos para clientes.
+This document gathers best practices, tools, and recommendations for creating a **fully open-source**, lightweight, modern, and easy-to-integrate SOC and AppSec stack—ready for lab environments with up to **20 machines** or for initial deployment in client projects.
 
 ---
 
 ## 🛡️ 1. SOC / Threat Monitoring / Incident Response
 
-### 🔧 Ferramentas Selecionadas
+### 🔧 Selected Tools
 
 #### **Wazuh**
-- SIEM/HIDS referência open source.  
-- Cobertura: logs, agentes de endpoint (host/container/cloud), compliance, integração com Osquery, Falco, Trivy, Yara, Checkov/KICS.  
-- Exporta incidentes/finding para **OpenCTI**.
+- The open-source reference for SIEM/HIDS.
+- Coverage: logs, endpoint agents (host/container/cloud), compliance, integration with Osquery, Falco, Trivy, Yara, Checkov/KICS.
+- Exports incidents/findings to **OpenCTI**.
 
 #### **Security Onion**
-- NIDS/sensor de rede (Suricata, Zeek, ELK).  
-- Detecção e análise de tráfego, alertas para SIEM/CTI, integração bidirecional com outros sistemas.
+- NIDS/network sensor (Suricata, Zeek, ELK).
+- Traffic detection and analysis, alerts for SIEM/CTI, bidirectional integration with other systems.
 
 #### **Osquery**
-- Endpoint hunting, inventário e queries SQL para compliance/auditorias.  
-- Integrado ao Wazuh.
+- Endpoint hunting, inventory, and SQL queries for compliance/audits.
+- Integrated with Wazuh.
 
 #### **Falco**
-- Runtime threat detection em containers, Kubernetes ou hosts Linux.  
-- Integração com Wazuh / Security Onion.
+- Runtime threat detection in containers, Kubernetes, or Linux hosts.
+- Integration with Wazuh / Security Onion.
 
 #### **Trivy**
-- Vulnerability scanner para containers, images, código-fonte, IaC, secrets, SCA e SBOM.  
-- Exporta para Wazuh/AppSec/CTI.
+- Vulnerability scanner for containers, images, source code, IaC, secrets, SCA, and SBOM.
+- Exports to Wazuh/AppSec/CTI.
 
 #### **Yara**
-- Análise forense e hunting de malware/artefatos.  
-- Pode ser automatizado pelo SIEM/SOAR.
+- Forensic analysis and hunting for malware/artifacts.
+- Can be automated by the SIEM/SOAR.
 
 #### **OpenCTI & MISP**
-- Threat Intelligence: coleta/enriquecimento/contexto de IOCs e campanhas.  
-- Integra findings de SIEM, scanners e nuvem.
+- Threat Intelligence: collection/enrichment/context for IOCs and campaigns.
+- Integrates findings from SIEM, scanners, and the cloud.
 
 #### **Prowler**
-- Auditoria/compliance/hardening **AWS** (CSPM referência open).  
-- Exporta relatórios para SIEM/CTI/SOAR.
+- **AWS** auditing/compliance/hardening (the open-source CSPM reference).
+- Exports reports to SIEM/CTI/SOAR.
 
 #### **Steampipe**
-- CSPM multi-cloud/SaaS com queries SQL para postura, auditoria e compliance em AWS, Azure, GCP, Google Workspace, GitHub, Okta, etc.  
-- Excelente complemento para máxima cobertura.
+- Multi-cloud/SaaS CSPM with SQL queries for posture, auditing, and compliance in AWS, Azure, GCP, Google Workspace, GitHub, Okta, etc.
+- An excellent complement for maximum coverage.
 
 #### **ScoutSuite**
-- Auditoria visual e leve de postura multi-cloud.  
-- Relatórios e dashboards complementares a Prowler/Steampipe.
+- Lightweight, visual multi-cloud posture audit.
+- Complementary reports and dashboards to Prowler/Steampipe.
 
 #### **Tracecat (SOAR)**
-- Orquestração/playbooks leves e modernos, integração API/webhook/CI.  
-- Automação de resposta a incidentes com visual builder.
+- Lightweight and modern orchestration/playbooks, API/webhook/CI integration.
+- Incident response automation with a visual builder.
 
 ---
 
-### 📈 Cobertura
-- Logs, telemetria, vulnerabilidades, compliance, monitoração cloud/SaaS/multicloud, runtime/behavioral, forense/hunting, threat intelligence, automação e análise de artefatos.  
-- Cobertura máxima: **host, container, rede, cloud, SaaS, pipeline, artefatos e código.**
+### 📈 Coverage
+- Logs, telemetry, vulnerabilities, compliance, cloud/SaaS/multicloud monitoring, runtime/behavioral, forensics/hunting, threat intelligence, automation, and artifact analysis.
+- Maximum coverage: **host, container, network, cloud, SaaS, pipeline, artifacts, and code.**
 
-### 🔗 Integração
-- **Wazuh** centraliza inputs de Falco, Osquery, Trivy e Yara.  
-- **Security Onion** cobre rede e envia alertas a CTI/SOAR.  
-- **Prowler**, **Steampipe** e **ScoutSuite** exportam relatórios para SIEM/CTI.  
-- **OpenCTI/MISP** centraliza e enriquece IOCs.  
-- **Tracecat** automatiza resposta e orquestra playbooks.
+### 🔗 Integration
+- **Wazuh** centralizes inputs from Falco, Osquery, Trivy, and Yara.
+- **Security Onion** covers the network and sends alerts to CTI/SOAR.
+- **Prowler**, **Steampipe**, and **ScoutSuite** export reports to SIEM/CTI.
+- **OpenCTI/MISP** centralizes and enriches IOCs.
+- **Tracecat** automates responses and orchestrates playbooks.
 
-### 🎯 Resultados
-- Visibilidade unificada de toda a superfície digital (cloud, on-prem, SaaS, código).  
-- Alertas correlacionados, hunting automatizado e relatórios de incidentes.
+### 🎯 Results
+- Unified visibility across the entire digital surface (cloud, on-prem, SaaS, code).
+- Correlated alerts, automated hunting, and incident reports.
 
 ### ⚖️ Overlaps
-- **Prowler / Steampipe / ScoutSuite:** máxima cobertura CSPM.  
-- **Wazuh × Osquery:** hunting avançado em endpoints.  
-- **Falco × Trivy:** comportamento/runtime vs vulnerabilidade estática.  
-- **Checkov/KICS × Trivy:** redundância para IaC.
+- **Prowler / Steampipe / ScoutSuite:** maximum CSPM coverage.
+- **Wazuh × Osquery:** advanced endpoint hunting.
+- **Falco × Trivy:** behavioral/runtime vs. static vulnerability.
+- **Checkov/KICS × Trivy:** redundancy for IaC.
 
 ---
 
 ## 💻 2. AppSec / DevSecOps Stack
 
-### 🔧 Ferramentas Selecionadas
+### 🔧 Selected Tools
 
 #### **SonarQube (Community Edition)**
-- SAST referência: bugs, vulnerabilidades e code smells para múltiplas linguagens.  
-- Ideal para projetos grandes e revisões profundas.
+- Reference SAST: bugs, vulnerabilities, and code smells for multiple languages.
+- Ideal for large projects and in-depth reviews.
 
 #### **Semgrep**
-- SAST moderno: rápido, customizável, ideal para CI/CD.  
-- Regras específicas por linguagem/framework.
+- Modern SAST: fast, customizable, ideal for CI/CD.
+- Language/framework-specific rules.
 
 #### **OWASP ZAP**
-- DAST referência: scan dinâmico de apps e APIs.  
-- Interface web/CLI e integração CI/CD.
+- Reference DAST: dynamic scanning of apps and APIs.
+- Web/CLI interface and CI/CD integration.
 
 #### **Checkov**
-- Segurança de IaC: Terraform, CloudFormation, Kubernetes YAML, ARM.  
-- Detecta segredos e falhas de compliance.
+- IaC Security: Terraform, CloudFormation, Kubernetes YAML, ARM.
+- Detects secrets and compliance failures.
 
 #### **KICS**
-- Segurança de IaC complementar ao Checkov.  
-- Suporte extenso a definições.
+- IaC security complementary to Checkov.
+- Extensive support for definitions.
 
 #### **Clair**
-- SCA para containers/images (infra vulnerabilidades).
+- SCA for containers/images (infra vulnerabilities).
 
 #### **Trivy**
-- SCA/IaC/Images/Secrets: scanner multifuncional nas pipelines.
+- SCA/IaC/Images/Secrets: a multi-functional scanner in pipelines.
 
 #### **Dependabot**
-- SCA de dependências: alertas e PRs automáticos no GitHub.
+- Dependency SCA: alerts and automatic PRs on GitHub.
 
 #### **Gitleaks / TruffleHog**
-- Scanners para detectar segredos vazados/hardcoded.
+- Scanners to detect leaked/hardcoded secrets.
 
 ---
 
-### 📈 Cobertura
-- SAST, DAST, SCA, IaC security, secrets detection, compliance cloud-native, containers e pipelines CI/CD.
+### 📈 Coverage
+- SAST, DAST, SCA, IaC security, secrets detection, cloud-native compliance, containers, and CI/CD pipelines.
 
-### 🔗 Integração
-- Todos rodam integrados no pipeline (Actions/Scripts/Docker).  
-- Outputs estruturados (JSON, CSV, SARIF, XML, HTML) conectam-se a dashboards e alertas.
+### 🔗 Integration
+- All run integrated into the pipeline (Actions/Scripts/Docker).
+- Structured outputs (JSON, CSV, SARIF, XML, HTML) connect to dashboards and alerts.
 
-### 🎯 Resultados
-- Detecção preventiva de vulnerabilidades e falhas de configuração.  
-- Compliance automatizado e integração com SIEM/CTI.
+### 🎯 Results
+- Preventive detection of vulnerabilities and misconfigurations.
+- Automated compliance and integration with SIEM/CTI.
 
 ### ⚖️ Overlaps
-- **SonarQube × Semgrep:** SAST com máxima cobertura e velocidade.  
-- **Checkov / KICS / Trivy / Clair:** segurança IaC + containers + infra.
+- **SonarQube × Semgrep:** SAST with maximum coverage and speed.
+- **Checkov / KICS / Trivy / Clair:** IaC + containers + infra security.
 
 ---
 
 ## ☁️ 3. CSPM & CASB (Cloud Posture & SaaS Security)
 
 ### 🔍 CSPM (Cloud Security Posture Management)
-- **Prowler:** auditoria AWS, referência em posture/compliance.  
-- **Steampipe:** queries SQL para multi-cloud/M365/SaaS.  
-- **ScoutSuite:** auditoria leve/visual para AWS, Azure e GCP.
+- **Prowler:** AWS auditing, the reference in posture/compliance.
+- **Steampipe:** SQL queries for multi-cloud/M365/SaaS.
+- **ScoutSuite:** lightweight/visual auditing for AWS, Azure, and GCP.
 
-### 🧩 CASB (Cloud Access Security Broker) — *Opcional*
-- **OpenCASB:** monitoração de SaaS críticos, shadow IT e compliance.  
-- **Steampipe:** pode atuar como CASB leve via queries SaaS.
-
----
-
-## 🧰 4. Infraestrutura Recomendada para Lab (até 20 máquinas)
-
-| Host              | CPU      | RAM     | Disco   | Função                                     |
-|-------------------|----------|---------|---------|--------------------------------------------|
-| **Security Onion** | 4 vCPU   | 8–16GB  | 100GB+  | VM/baremetal com interface promíscua (NIDS) |
-| **SOC Node**       | 8 vCPU   | 16GB+   | 200GB+  | SIEM, CTI, automação, orchestration         |
-| **DevSecOps Node** | 4–8 vCPU | 8–16GB  | 100GB+  | Scanners AppSec e pipelines CI/CD           |
-| **CTI Node**       | 4 vCPU   | 8GB     | 60GB+   | OpenCTI/MISP, Threat Hunting                |
-| **CSPM Node**      | 2 vCPU   | 4GB     | 40GB+   | Prowler/Steampipe/ScoutSuite                |
-
-> 💡 Total: **4 a 6 hosts/VMs**.  
-> Com poucos recursos, agrupe SOC/AppSec em 2–3 hosts (exceto Security Onion, que deve ficar isolado).
+### 🧩 CASB (Cloud Access Security Broker) — *Optional*
+- **OpenCASB:** monitoring of critical SaaS, shadow IT, and compliance.
+- **Steampipe:** can act as a lightweight CASB via SaaS queries.
 
 ---
 
-## 🚀 5. Instalação e Deploy
+## 🧰 4. Recommended Lab Infrastructure (up to 20 machines)
 
-- **Docker Compose** para Wazuh, Osquery, Falco, Trivy, Yara, Tracecat, OpenCTI/MISP, Steampipe, ScoutSuite.  
-- **Security Onion** via ISO/VM.  
-- **AppSec:** scanners via containers ou CI/CD runners.  
-- **CSPM:** agendar Prowler/Steampipe/ScoutSuite para exportar via API/webhook.  
-- **CASB:** implantar OpenCASB/Steampipe conforme necessidade.
+| Host              | CPU      | RAM     | Disk   | Role                                       |
+|-------------------|----------|---------|--------|--------------------------------------------|
+| **Security Onion** | 4 vCPU   | 8–16GB  | 100GB+ | VM/baremetal with a promiscuous interface (NIDS) |
+| **SOC Node** | 8 vCPU   | 16GB+   | 200GB+ | SIEM, CTI, automation, orchestration       |
+| **DevSecOps Node** | 4–8 vCPU | 8–16GB  | 100GB+ | AppSec scanners and CI/CD pipelines        |
+| **CTI Node** | 4 vCPU   | 8GB     | 60GB+  | OpenCTI/MISP, Threat Hunting               |
+| **CSPM Node** | 2 vCPU   | 4GB     | 40GB+  | Prowler/Steampipe/ScoutSuite               |
 
----
-
-## 🧩 6. Dicas Finais
-
-- Automatize scanners AppSec a cada PR/merge/build.  
-- Exporte findings críticos automaticamente para SIEM/CTI/SOAR.  
-- Use dashboards nativos e APIs para hunting e relatórios.  
-- Adicione **CAPE** se quiser análise dinâmica de malware (sandbox forense).
+> 💡 Total: **4 to 6 hosts/VMs**.
+> With limited resources, group SOC/AppSec on 2–3 hosts (except for Security Onion, which should remain isolated).
 
 ---
 
-Essa stack cobre **todo o ciclo de vida de segurança**: código, builds, infraestrutura, cloud-native, runtime, SIEM, network, CTI, automação e resposta.  
-Tudo **open source, auditável, leve e facilmente adaptável** para produção real ou múltiplos clientes.
+## 🚀 5. Installation and Deployment
+
+- **Docker Compose** for Wazuh, Osquery, Falco, Trivy, Yara, Tracecat, OpenCTI/MISP, Steampipe, ScoutSuite.
+- **Security Onion** via ISO/VM.
+- **AppSec:** scanners via containers or CI/CD runners.
+- **CSPM:** schedule Prowler/Steampipe/ScoutSuite to export via API/webhook.
+- **CASB:** deploy OpenCASB/Steampipe as needed.
+
+---
+
+## 🧩 6. Final Tips
+
+- Automate AppSec scanners on every PR/merge/build.
+- Automatically export critical findings to SIEM/CTI/SOAR.
+- Use native dashboards and APIs for hunting and reporting.
+- Add **CAPE** if you want dynamic malware analysis (forensic sandbox).
+
+---
+
+This stack covers the **entire security lifecycle**: code, builds, infrastructure, cloud-native, runtime, SIEM, network, CTI, automation, and response.
+All **open-source, auditable, lightweight, and easily adaptable** for real production or multiple clients.

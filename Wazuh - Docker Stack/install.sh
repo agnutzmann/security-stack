@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
-# Script para Instalação Estável do Wazuh Docker
+# Script for Stable Wazuh Docker Installation
 #
-# Autor: Alexandre Gnutzmann com ajuda das IAs zuadas que só dão canseira de tantos erros.
-# Data: 2025-09-29
-# Versão: 1.0
+# Author: Alexandre Gnutzmann with help from goofy AIs that only cause trouble with so many errors.
+# Date: 2025-09-29
+# Version: 1.0
 # 
-# Scripts de backup e atualizaçã ainda não foram testados. Use por sua conta e risco.
-# Vulnerabilidades conhecidas: hardcoded-credentials (para manter compatibilidade com o repositório original) e clear-text-logging
-# Proteja seu ambiente Docker adequadamente para diminuir o risco.  
+# Backup and update scripts have not been tested yet. Use at your own risk.
+# Known vulnerabilities: hardcoded-credentials (to maintain compatibility with the original repository) and clear-text-logging
+# Protect your Docker environment properly to mitigate the risk.  
 #
 
 
 set -euo pipefail
 
-# --- CONFIGURAÇÕES GERAIS ---
+# --- GENERAL SETTINGS ---
 WAZUH_VERSION="4.13.1"; STACK_DIR="$HOME/stacks/wazuh"; REPO_URL="https://github.com/wazuh/wazuh-docker.git"
 
-# --- CORES E FUNÇÕES AUXILIARES ---
+# --- COLORS AND HELPER FUNCTIONS ---
 readonly C_RESET='\033[0m'; readonly C_RED='\033[0;31m'; readonly C_GREEN='\033[0;32m';
 readonly C_YELLOW='\033[0;33m'; readonly C_BLUE='\033[0;34m';
 log_info() { echo -e "${C_BLUE}[INFO]${C_RESET} $1"; }
@@ -28,7 +28,7 @@ log_error() { echo -e "${C_RED}[ERROR]${C_RESET} $1"; exit 1; }
 check_command() {
     local cmd="$1"
     command -v "$cmd" &>/dev/null && return 0
-    log_warn "Comando '$cmd' não encontrado."
+    log_warn "Command '$cmd' not found."
     if [ -f /etc/os-release ]; then
         source /etc/os-release; ID=${ID:-unknown};
     else
@@ -47,9 +47,9 @@ check_command() {
             if [ "$cmd" == "docker" ]; then pkg_name="docker-ce"; fi
             install_instruction="sudo dnf install -y $pkg_name"
             ;;
-        *) install_instruction="Por favor, use o gerenciador de pacotes da sua distribuição para instalar '$pkg_name'." ;;
+        *) install_instruction="Please use your distribution's package manager to install '$pkg_name'." ;;
     esac
-    log_error "Instalação de pré-requisito necessária. Por favor, execute:\n\n  ${install_instruction}\n"
+    log_error "Prerequisite installation required. Please run:\n\n  ${install_instruction}\n"
 }
 
 gen_pass() {
@@ -63,16 +63,16 @@ gen_pass() {
     echo "$combined" | fold -w1 | shuf | tr -d '\n'
 }
 
-# --- FLUXO PRINCIPAL ---
+# --- MAIN FLOW ---
 
-log_info "Verificando pré-requisitos..."
+log_info "Checking prerequisites..."
 PYTHON_OK=true
 if ! command -v python3 &>/dev/null || ! command -v pip &>/dev/null || ! python3 -c "import venv" &>/dev/null; then
     PYTHON_OK=false
 fi
 
 if [ "$PYTHON_OK" = "false" ]; then
-    log_warn "Uma ou mais dependências do Python (python3, pip, venv) não foram encontradas."
+    log_warn "One or more Python dependencies (python3, pip, venv) were not found."
     if [ -f /etc/os-release ]; then 
         source /etc/os-release; ID=${ID:-unknown};
     else 
@@ -81,40 +81,40 @@ if [ "$PYTHON_OK" = "false" ]; then
     install_instruction=""
     case $ID in
         ubuntu|debian) install_instruction="sudo apt update && sudo apt install -y python3 python3-pip python3-venv" ;;
-        fedora|centos|rhel) install_instruction="sudo dnf install -y python3 python3-pip" ;; # dnf/yum geralmente inclui o venv
-        *) install_instruction="Por favor, instale 'python3', 'python3-pip' e 'python3-venv' usando o gerenciador de pacotes do seu sistema." ;;
+        fedora|centos|rhel) install_instruction="sudo dnf install -y python3 python3-pip" ;; # dnf/yum usually includes venv
+        *) install_instruction="Please install 'python3', 'python3-pip', and 'python3-venv' using your system's package manager." ;;
     esac
-    log_error "Instalação necessária. Por favor, execute o comando abaixo e rode o script novamente:\n\n  ${install_instruction}\n"
+    log_error "Installation required. Please run the command below and run the script again:\n\n  ${install_instruction}\n"
 fi
 
 for cmd in docker git shuf sed rsync; do 
     check_command "$cmd"
 done
 if ! groups "$USER" | grep -q '\bdocker\b'; then 
-    log_error "Usuário $USER não pertence ao grupo 'docker'. Execute 'sudo usermod -aG docker $USER', faça logout/login e rode novamente." 
+    log_error "User $USER does not belong to the 'docker' group. Run 'sudo usermod -aG docker $USER', log out/in, and run again." 
 fi
 if docker compose version &>/dev/null; then 
     DC="docker compose"
 elif docker-compose version &>/dev/null; then 
     DC="docker-compose"
 else 
-    log_error "Nenhuma versão do Docker Compose foi encontrada."
+    log_error "No version of Docker Compose was found."
 fi
-log_success "Pré-requisitos atendidos (usando '$DC')."
+log_success "Prerequisites met (using '$DC')."
 
 
-log_info "Preparando o diretório da stack em ${STACK_DIR}..."
+log_info "Preparing the stack directory at ${STACK_DIR}..."
 mkdir -p "$STACK_DIR"
 TEMP_DIR=$(mktemp -d)
-log_info "Clonando repositório Wazuh Docker (v$WAZUH_VERSION)..."
+log_info "Cloning Wazuh Docker repository (v$WAZUH_VERSION)..."
 git -c advice.detachedHead=false clone --depth 1 --branch "v$WAZUH_VERSION" "$REPO_URL" "$TEMP_DIR" > /dev/null
-log_info "Copiando apenas os arquivos essenciais para a stack..."
+log_info "Copying only the essential files to the stack..."
 rsync -a "${TEMP_DIR}/single-node/" "$STACK_DIR/"
 rm -rf "$TEMP_DIR"
 cd "$STACK_DIR"
-log_success "Estrutura da stack limpa criada em $(pwd)"
+log_success "Clean stack structure created in $(pwd)"
 
-log_info "Gerando senhas e criando arquivo .env..."
+log_info "Generating passwords and creating .env file..."
 ADMIN_PASS=$(gen_pass)
 DASHBOARD_PASS=$(gen_pass)
 cat > .env <<EOL
@@ -125,49 +125,49 @@ API_PASSWORD='MyS3cr37P450r.*-'
 DASHBOARD_PASSWORD='${DASHBOARD_PASS}'
 EOL
 chmod 600 .env
-log_success "Arquivo .env criado."
+log_success ".env file created."
 
-log_info "Adaptando o docker-compose.yml com health checks..."
+log_info "Adapting docker-compose.yml with health checks..."
 cp docker-compose.yml docker-compose.yml.orig
-# Adapta senhas e portas
+# Adapt passwords and ports
 sed -i -e "s|INDEXER_PASSWORD=SecretPassword|INDEXER_PASSWORD=\${INDEXER_PASSWORD}|g" \
     -e "s|DASHBOARD_PASSWORD=kibanaserver|DASHBOARD_PASSWORD=\${DASHBOARD_PASSWORD}|g" \
     -e "s|\"443:5601\"|\"\${WAZUH_DASHBOARD_PORT}:5601\"|g" \
     docker-compose.yml
-# Adiciona Healthcheck para o Indexer
+# Add Healthcheck for the Indexer
 sed -i '/hostname: wazuh.indexer/a \
     healthcheck:\n\
       test: ["CMD-SHELL", "curl -k -u admin:\${INDEXER_PASSWORD} https://localhost:9200/_cluster/health?wait_for_status=yellow\&timeout=5s"]\n\
       interval: 10s\n\
       timeout: 5s\n\
       retries: 20' docker-compose.yml
-# Adiciona Healthcheck para o Manager (usando a senha padrão da API)
+# Add Healthcheck for the Manager (using the default API password)
 sed -i '/hostname: wazuh.manager/a \
     healthcheck:\n\
       test: ["CMD-SHELL", "curl -k -u wazuh-wui:MyS3cr37P450r.*- https://localhost:55000/manager/info"]\n\
       interval: 10s\n\
       timeout: 5s\n\
       retries: 20' docker-compose.yml
-# Modifica o Dashboard para esperar os health checks
+# Modify the Dashboard to wait for health checks
 sed -i '/depends_on:/a \
       wazuh.indexer:\n\
         condition: service_healthy\n\
       wazuh.manager:\n\
         condition: service_healthy' docker-compose.yml
 sed -i '/- wazuh.indexer/d' docker-compose.yml
-log_success "docker-compose.yml adaptado."
+log_success "docker-compose.yml adapted."
 
-log_info "Gerando certificados internos..."
+log_info "Generating internal certificates..."
 $DC -f generate-indexer-certs.yml down -v 2>/dev/null || true
 $DC -f generate-indexer-certs.yml run --rm generator
-log_success "Certificados gerados."
-log_info "Corrigindo dono e permissões dos arquivos..."
+log_success "Certificates generated."
+log_info "Fixing file ownership and permissions..."
 sudo chown -R "$USER":"$USER" ./config
 find ./config -type d -exec chmod 700 {} \;
 find ./config -type f -exec chmod 600 {} \;
-log_success "Dono e permissões corrigidos."
+log_success "Ownership and permissions fixed."
 
-log_info "Atualizando hashes de senha em 'internal_users.yml'..."
+log_info "Updating password hashes in 'internal_users.yml'..."
 venv_dir=".py_venv"
 python3 -m venv "$venv_dir"
 source "$venv_dir/bin/activate"
@@ -181,25 +181,25 @@ sed -i "/^admin:/,/^[^ ]/ s|^\(\s*hash:\s*\).*|\1\"$escaped_hash_admin\"|" "$int
 sed -i "/^kibanaserver:/,/^[^ ]/ s|^\(\s*hash:\s*\).*|\1\"$escaped_hash_kibanaserver\"|" "$internal_users_file"
 deactivate
 rm -rf "$venv_dir"
-log_success "Hashes de senha sincronizados."
+log_success "Password hashes synchronized."
 
-log_info "Ajustando vm.max_map_count de forma permanente..."
+log_info "Setting vm.max_map_count permanently..."
 if ! grep -q "vm.max_map_count=262144" /etc/sysctl.conf; then
     echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf > /dev/null
 fi
 sudo sysctl -p > /dev/null
-log_success "Configuração do kernel aplicada."
+log_success "Kernel setting applied."
 
-log_info "Iniciando a stack Wazuh (pode levar alguns minutos para os health checks passarem)..."
+log_info "Starting the Wazuh stack (it may take a few minutes for health checks to pass)..."
 $DC down -v --remove-orphans 2>/dev/null || true
 $DC up -d
-log_success "Comando de inicialização enviado."
+log_success "Start command sent."
 
-log_info "Aguardando o Dashboard ficar pronto (timeout de 5 minutos)..."
+log_info "Waiting for the Dashboard to be ready (5-minute timeout)..."
 HEALTHY=false
 for i in {1..30}; do 
     if $DC logs wazuh.dashboard 2>/dev/null | grep -q "Server running at"; then 
-        log_success "Dashboard está no ar!"; 
+        log_success "Dashboard is up!"; 
         HEALTHY=true; 
         break; 
     fi
@@ -208,19 +208,19 @@ for i in {1..30}; do
 done
 echo
 if [ "$HEALTHY" = "false" ]; then 
-    log_error "O Dashboard não iniciou a tempo. Verifique os logs com: $DC logs wazuh.dashboard"
+    log_error "The Dashboard did not start in time. Check the logs with: $DC logs wazuh.dashboard"
 fi
 
 source .env
 ip_host=$(ip route get 1.1.1.1 | awk '{print $7; exit}')
 echo
 log_success "--------------------------------------------------------"
-log_success " INSTALAÇÃO DO WAZUH CONCLUÍDA!"
+log_success " WAZUH INSTALLATION COMPLETE!"
 log_success "--------------------------------------------------------"
 echo
-log_info "Status final dos containers:"; $DC ps; echo
-log_info "Acesse o Dashboard Wazuh em: https://${ip_host}:${WAZUH_DASHBOARD_PORT}"
-log_info "Usuário para login: admin"
-log_info "Senha gerada: ${ADMIN_PASS}"
+log_info "Final container status:"; $DC ps; echo
+log_info "Access the Wazuh Dashboard at: https://${ip_host}:${WAZUH_DASHBOARD_PORT}"
+log_info "Login user: admin"
+log_info "Generated password: ${ADMIN_PASS}"
 echo
-log_warn "Guarde esta senha em um local seguro!"
+log_warn "Store this password in a safe place!"
